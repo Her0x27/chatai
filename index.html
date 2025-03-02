@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Космический Приватный Чат с E2E шифрованием</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    /* Сброс и базовая настройка */
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at 50% 50%, #0d1b2a, #1b263b, #415a77);
+      font-family: 'Roboto Mono', monospace;
+      color: #fff;
+      overflow: hidden;
+    }
+    /* Контейнер для всплывающих уведомлений (toasts) */
+    #toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1100;
+    }
+    .toast {
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      padding: 10px 15px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      min-width: 200px;
+      opacity: 0;
+      animation: fadeInOut 4s forwards;
+    }
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translateX(100%); }
+      10% { opacity: 1; transform: translateX(0); }
+      90% { opacity: 1; }
+      100% { opacity: 0; transform: translateX(100%); }
+    }
+    /* Основной контейнер приложения */
+    #app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 10px;
+    }
+    /* Верхняя панель */
+    #chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(10,10,30,0.8);
+      padding: 10px 15px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    /* Вкладки с иконками вместо текста */
+    #chat-header .tabs {
+      display: flex;
+      gap: 10px;
+    }
+    #chat-header button {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 1em;
+      cursor: pointer;
+      padding: 5px 10px;
+      transition: background 0.3s;
+    }
+    #chat-header button:hover,
+    #chat-header button.active {
+      background: rgba(255,255,255,0.2);
+      border-radius: 5px;
+    }
+    /* Группа кнопок управления */
+    #control-buttons {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    #control-buttons button {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 1.2em;
+      cursor: pointer;
+      transition: color 0.3s;
+    }
+    #control-buttons button:hover { color: #00adb5; }
+    /* Кнопка ротации ключа */
+    #rotate-key { display: inline-block; }
+    /* Контейнер чата */
+    #chat-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.3);
+    }
+    /* Сайдбар участников */
+    #participants {
+      width: 250px;
+      background: rgba(0,0,0,0.5);
+      border-right: 1px solid rgba(255,255,255,0.2);
+      overflow-y: auto;
+      transition: width 0.3s, opacity 0.3s;
+      padding: 10px;
+    }
+    #participants.hidden {
+      width: 0;
+      opacity: 0;
+      padding: 0;
+    }
+    #participants h2 {
+      text-align: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+      margin: 0 0 10px;
+    }
+    #participants ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    #participants li {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+      transition: background 0.3s;
+      border-radius: 4px;
+      margin-bottom: 5px;
+    }
+    #participants li:hover { background: rgba(255,255,255,0.1); }
+    #participants li img.avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+    /* Область чата */
+    #main-chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 10px;
+    }
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+    /* Основной класс сообщения */
+    .message {
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      animation: fadeIn 0.3s ease;
+    }
+    /* Чередование выравнивания */
+    .message.left {
+      flex-direction: row;
+      justify-content: flex-start;
+      margin-left: 5px;
+      margin-right: auto;
+    }
+    .message.right {
+      flex-direction: row-reverse;
+      /*justify-content: flex-end;*/
+      margin-right: 5px;  /* уменьшенный отступ справа */
+      margin-left: auto;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .message .avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      margin: 0 10px;
+      flex-shrink: 0;
+    }
+    .message .content {
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 10px;
+      max-width: 70%;
+      position: relative;
+      word-wrap: break-word;
+    }
+    .message .content .meta {
+      font-size: 0.8em;
+      color: #aaa;
+      margin-bottom: 5px;
+    }
+    .reply {
+      border-left: 3px solid #00adb5;
+      padding-left: 10px;
+      margin-bottom: 5px;
+      font-style: italic;
+      color: #ccc;
+    }
+    /* Область ввода */
+    #input-area {
+      padding: 10px;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+    #input-area input[type="text"] {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      margin-right: 10px;
+    }
+    #input-area button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      background: #00adb5;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    #input-area button:hover { background: #007a80; }
+    /* Модальные окна */
+    #auth-modal, #settings-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 10px;
+    }
+    #auth-modal .auth-container, #settings-modal .settings-container {
+      background: rgba(255,255,255,0.1);
+      padding: 20px;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 320px;
+    }
+    #auth-modal input[type="text"],
+    #settings-modal input[type="text"],
+    #settings-modal input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: none;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+    #auth-modal button, #settings-modal button {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      background: #00adb5;
+      color: #fff;
+      cursor: pointer;
+    }
+    @media (max-width: 768px) { #participants { width: 200px; } }
+  </style>
+</head>
+<body>
+  <!-- Контейнер уведомлений -->
+  <div id="toast-container"></div>
+
+  <!-- Модальное окно аутентификации -->
+  <div id="auth-modal">
+    <div class="auth-container">
+      <h2>Аутентификация</h2>
+      <input type="text" id="username-input" placeholder="Имя пользователя" maxlength="15">
+      <div id="password-section" style="display:none;">
+        <input type="password" id="password-input" placeholder="Введите пароль">
+        <input type="password" id="confirm-password-input" placeholder="Подтвердите пароль" style="display:none;">
+      </div>
+      <button id="auth-button">Продолжить</button>
+      <div id="auth-error" style="color: red; margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <!-- Модальное окно настроек -->
+  <div id="settings-modal" style="display:none;">
+    <div class="settings-container">
+      <h2>Настройки пользователя</h2>
+      <input type="text" id="new-username" placeholder="Новый юзернейм" maxlength="15">
+      <input type="password" id="new-password" placeholder="Новый пароль">
+      <input type="password" id="confirm-new-password" placeholder="Подтвердите новый пароль">
+      <input type="text" id="new-avatar" placeholder="URL аватара">
+      <button id="save-settings">Сохранить настройки</button>
+      <button id="close-settings" style="background:#aaa; margin-top:5px;">Отмена</button>
+      <div id="settings-error" style="color:red; margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <!-- Основное приложение -->
+  <div id="app-container" style="display:none;">
+    <!-- Верхняя панель с иконками -->
+    <div id="chat-header">
+      <div class="tabs">
+        <button id="group-tab" class="active"><i class="fas fa-globe"></i></button>
+        <button id="private-tab"><i class="fas fa-user"></i></button>
+      </div>
+      <div id="active-chat-info"></div>
+      <div id="control-buttons">
+        <button id="settings-button" title="Настройки"><i class="fas fa-cog"></i></button>
+        <button id="rotate-key" title="Ротация группового ключа"><i class="fas fa-sync"></i></button>
+        <button id="logout-button" title="Выход"><i class="fas fa-sign-out-alt"></i></button>
+        <button id="toggle-participants" title="Показать/Скрыть участников"><i class="fas fa-users"></i></button>
+      </div>
+    </div>
+    <!-- Контейнер чата -->
+    <div id="chat-container">
+      <!-- Сайдбар участников -->
+      <div id="participants">
+        <h2><i class="fas fa-users"></i></h2>
+        <ul id="participants-list"></ul>
+      </div>
+      <!-- Область сообщений -->
+      <div id="main-chat">
+        <div id="messages"></div>
+        <div id="input-area">
+          <input type="text" id="message-input" placeholder="Введите сообщение">
+          <button id="send-button"><i class="fas fa-paper-plane"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Скрипты: Firebase, логика приложения и криптография -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded, remove, get, off } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-database.js";
+
+    // Firebase-конфигурация
+    const firebaseConfig = {
+      apiKey: "AIzaSyAcKeBeLqmx9o_kwuBPMvDT2T2l8ZtE5j0",
+      authDomain: "tozze-2ea23.firebaseapp.com",
+      projectId: "tozze-2ea23",
+      storageBucket: "tozze-2ea23.firebasestorage.app",
+      messagingSenderId: "677439889431",
+      appId: "1:677439889431:web:f1fb25e76824a66a507c52"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Глобальные переменные
+    let currentUser = null;
+    let activeChat = "group"; // "group" или { type:"private", target:"username" }
+    let currentListenerRef = null, currentListenerType = null;
+    let groupKey = null; // Групповой AES-GCM ключ
+    let ecdhKeyPair = null; // Пара ECDH для обмена ключами
+    let messageCount = 0; // Счётчик сообщений для чередования выравнивания
+
+    // Помощники для конвертации ArrayBuffer <-> Base64
+    function arrayBufferToBase64(buffer) {
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      bytes.forEach(b => binary += String.fromCharCode(b));
+      return window.btoa(binary);
+    }
+    function base64ToArrayBuffer(base64) {
+      const binary = window.atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
+      return bytes.buffer;
+    }
+
+    // Генерация AES-GCM ключа (256 бит)
+    async function generateGroupKey() {
+      return crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+    }
+
+    // Шифрование JSON-структуры с AES-GCM
+    async function encryptText(plainText, key) {
+      const enc = new TextEncoder();
+      const data = enc.encode(plainText);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const cipherBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, data);
+      return { ciphertext: arrayBufferToBase64(cipherBuffer), iv: arrayBufferToBase64(iv.buffer) };
+    }
+
+    // Дешифрование
+    async function decryptText(ciphertextB64, ivB64, key) {
+      const ciphertext = base64ToArrayBuffer(ciphertextB64);
+      const iv = new Uint8Array(base64ToArrayBuffer(ivB64));
+      try {
+        const plainBuffer = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+        return new TextDecoder().decode(plainBuffer);
+      } catch (e) {
+        console.error("Ошибка дешифрования:", e);
+        return "[Ошибка дешифрования]";
+      }
+    }
+
+    // Генерация ECDH ключевой пары (P-256)
+    async function generateECDHKeyPair() {
+      return crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]);
+    }
+
+    // Инициализация криптографических данных
+    async function initCrypto() {
+      if (!ecdhKeyPair) { ecdhKeyPair = await generateECDHKeyPair(); }
+      if (!groupKey) { groupKey = await generateGroupKey(); }
+    }
+
+    // Для private-чата: deriveKey с использованием публичного ключа собеседника
+    async function derivePrivateChatKey(remotePublicKeyJwk) {
+      const remoteKey = await crypto.subtle.importKey("jwk", remotePublicKeyJwk, { name: "ECDH", namedCurve: "P-256" }, true, []);
+      return crypto.subtle.deriveKey({ name: "ECDH", public: remoteKey }, ecdhKeyPair.privateKey, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+    }
+
+    // Работа с сессией
+    function saveSession(user) { localStorage.setItem('chatUser', JSON.stringify(user)); }
+    function loadSession() { const user = localStorage.getItem('chatUser'); return user ? JSON.parse(user) : null; }
+    function clearSession() { localStorage.removeItem('chatUser'); }
+
+    // Аутентификация
+    async function authenticate() {
+      const username = document.getElementById('username-input').value.trim();
+      const passwordInput = document.getElementById('password-input').value.trim();
+      const confirmPasswordInput = document.getElementById('confirm-password-input').value.trim();
+      const authError = document.getElementById('auth-error');
+      if (!username) { authError.textContent = "Имя пользователя обязательно."; return; }
+      try {
+        let existingUser = loadSession();
+        if (existingUser && existingUser.username === username) {
+          currentUser = existingUser;
+          await initCrypto();
+          if (!currentUser.publicKey) {
+            currentUser.publicKey = await crypto.subtle.exportKey("jwk", ecdhKeyPair.publicKey);
+            let users = JSON.parse(localStorage.getItem('registeredUsers') || "{}");
+            users[username].publicKey = currentUser.publicKey;
+            localStorage.setItem('registeredUsers', JSON.stringify(users));
+          }
+          startChat();
+          return;
+        }
+        let registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || "{}");
+        if (registeredUsers[username]) {
+          if (!passwordInput) {
+            authError.textContent = "Введите пароль.";
+            document.getElementById('password-section').style.display = "block";
+            document.getElementById('confirm-password-input').style.display = "none";
+            return;
+          }
+          if (registeredUsers[username].password !== passwordInput) {
+            authError.textContent = "Неверный пароль.";
+            return;
+          }
+          currentUser = registeredUsers[username];
+          currentUser.username = username;
+          saveSession(currentUser);
+          await initCrypto();
+          if (!currentUser.publicKey) {
+            currentUser.publicKey = await crypto.subtle.exportKey("jwk", ecdhKeyPair.publicKey);
+            registeredUsers[username].publicKey = currentUser.publicKey;
+            localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+          }
+          startChat();
+        } else {
+          if (!passwordInput || !confirmPasswordInput) {
+            authError.textContent = "Введите и подтвердите пароль.";
+            document.getElementById('password-section').style.display = "block";
+            document.getElementById('confirm-password-input').style.display = "block";
+            return;
+          }
+          if (passwordInput !== confirmPasswordInput) {
+            authError.textContent = "Пароли не совпадают.";
+            return;
+          }
+          const fingerprint = "fp:" + (await crypto.subtle.digest("SHA-256", new TextEncoder().encode(username))).toString();
+          currentUser = {
+            username,
+            password: passwordInput,
+            fingerprint,
+            sessionStart: new Date().toISOString(),
+            avatar: "https://i.pravatar.cc/150?u=" + encodeURIComponent(username)
+          };
+          await initCrypto();
+          currentUser.publicKey = await crypto.subtle.exportKey("jwk", ecdhKeyPair.publicKey);
+          registeredUsers[username] = currentUser;
+          localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+          saveSession(currentUser);
+          startChat();
+        }
+      } catch (error) {
+        console.error("Ошибка аутентификации:", error);
+        authError.textContent = "Ошибка аутентификации.";
+      }
+    }
+
+    // Запуск чата
+    async function startChat() {
+      document.getElementById('auth-modal').style.display = "none";
+      document.getElementById('app-container').style.display = "flex";
+      loadParticipants();
+      initChatListeners();
+      updateChatHeader();
+      setInterval(cleanupOldMessages, 60000);
+    }
+
+    // Обновление заголовка: используем иконки вместо текста
+    function updateChatHeader() {
+      const headerInfo = document.getElementById('active-chat-info');
+      if (activeChat === "group") {
+        headerInfo.innerHTML = `<i class="fas fa-globe"></i>`;
+      } else if (activeChat.type === "private") {
+        headerInfo.innerHTML = `<i class="fas fa-user"></i> <button id="back-to-group" title="Вернуться в общий чат"><i class="fas fa-arrow-left"></i></button>`;
+        document.getElementById('back-to-group').addEventListener('click', () => { switchToGroupChat(); });
+      }
+    }
+
+    // Инициализация слушателей сообщений
+    async function initChatListeners() {
+      if (currentListenerRef && currentListenerType) { off(currentListenerRef); }
+      document.getElementById('messages').innerHTML = "";
+      if (activeChat === "group") {
+        currentListenerRef = ref(db, 'messages/');
+        currentListenerType = "group";
+        onChildAdded(currentListenerRef, async (data) => {
+          const payload = data.val();
+          let msgObj;
+          if (payload.encrypted) {
+            const plainJSON = await decryptText(payload.ciphertext, payload.iv, groupKey);
+            msgObj = JSON.parse(plainJSON);
+          }
+          renderMessage(msgObj, data.key);
+          remove(ref(db, 'messages/' + data.key)).catch(err => console.error("Ошибка удаления сообщения:", err));
+          processBotCommand(msgObj);
+        });
+      } else if (activeChat.type === "private") {
+        const convId = generateConversationId(currentUser.username, activeChat.target);
+        const users = JSON.parse(localStorage.getItem('registeredUsers') || "{}");
+        const remoteUser = users[activeChat.target];
+        const convKey = await derivePrivateChatKey(remoteUser.publicKey);
+        currentListenerRef = ref(db, 'private_messages/' + convId);
+        currentListenerType = "private";
+        onChildAdded(currentListenerRef, async (data) => {
+          const payload = data.val();
+          let msgObj;
+          if (payload.encrypted) {
+            const plainJSON = await decryptText(payload.ciphertext, payload.iv, convKey);
+            msgObj = JSON.parse(plainJSON);
+          }
+          renderMessage(msgObj, data.key);
+          remove(ref(db, 'private_messages/' + convId + '/' + data.key))
+            .catch(err => console.error("Ошибка удаления приватного сообщения:", err));
+          processBotCommand(msgObj);
+        });
+      }
+    }
+
+    // Очистка старых сообщений
+    async function cleanupOldMessages() {
+      try {
+        let groupRef = ref(db, 'messages/');
+        const groupSnap = await get(groupRef);
+        groupSnap.forEach(childSnap => {
+          const msg = childSnap.val();
+          const msgTime = new Date(msg.timestamp);
+          if (new Date() - msgTime > 24 * 60 * 60 * 1000) {
+            remove(ref(db, 'messages/' + childSnap.key))
+              .catch(err => console.error("Ошибка удаления старого группового сообщения:", err));
+          }
+        });
+        if (activeChat !== "group" && activeChat.type === "private") {
+          const convId = generateConversationId(currentUser.username, activeChat.target);
+          let privateRef = ref(db, 'private_messages/' + convId);
+          const privateSnap = await get(privateRef);
+          privateSnap.forEach(childSnap => {
+            const msg = childSnap.val();
+            const msgTime = new Date(msg.timestamp);
+            if (new Date() - msgTime > 24 * 60 * 60 * 1000) {
+              remove(ref(db, 'private_messages/' + convId + '/' + childSnap.key))
+                .catch(err => console.error("Ошибка удаления старого приватного сообщения:", err));
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Ошибка при очистке сообщений:", error);
+      }
+    }
+
+    // Рендеринг сообщения с чередованием выравнивания
+    function renderMessage(message, messageId) {
+      try {
+        const messagesDiv = document.getElementById('messages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = "message";
+        // Чередование выравнивания: для каждого сообщения добавляем класс left/right
+        const alignmentClass = (messageCount % 2 === 0) ? "left" : "right";
+        messageDiv.classList.add(alignmentClass);
+        messageCount++;
+        const avatarImg = document.createElement('img');
+        avatarImg.src = message.avatar || "https://i.pravatar.cc/150?u=" + encodeURIComponent(message.sender);
+        avatarImg.className = "avatar";
+        messageDiv.appendChild(avatarImg);
+        const contentDiv = document.createElement('div');
+        contentDiv.className = "content";
+        const metaDiv = document.createElement('div');
+        metaDiv.className = "meta";
+        metaDiv.textContent = message.sender + " • " + new Date(message.timestamp).toLocaleTimeString();
+        contentDiv.appendChild(metaDiv);
+        const messageTextDiv = document.createElement('div');
+        messageTextDiv.innerHTML = message.text;
+        contentDiv.appendChild(messageTextDiv);
+        messageDiv.appendChild(contentDiv);
+        messagesDiv.appendChild(messageDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      } catch (error) {
+        console.error("Ошибка рендеринга сообщения:", error);
+      }
+    }
+
+    // Генерация идентификатора private-чата
+    function generateConversationId(userA, userB) {
+      return [userA, userB].sort().join("_");
+    }
+
+    // Отправка сообщения: шифрование JSON объекта и очистка поля ввода
+    async function sendMessage() {
+      const input = document.getElementById('message-input');
+      const text = input.value.trim();
+      if (!text) return;
+      const msgObj = { sender: currentUser.username, text, timestamp: new Date().toISOString(), reply: false, replyText: "" };
+      let payload = {};
+      if (activeChat === "group") {
+        payload = await encryptText(JSON.stringify(msgObj), groupKey);
+      } else if (activeChat.type === "private") {
+        const convId = generateConversationId(currentUser.username, activeChat.target);
+        const users = JSON.parse(localStorage.getItem('registeredUsers') || "{}");
+        const remoteUser = users[activeChat.target];
+        const convKey = await derivePrivateChatKey(remoteUser.publicKey);
+        payload = await encryptText(JSON.stringify(msgObj), convKey);
+        payload.receiver = activeChat.target;
+      }
+      payload.encrypted = true;
+      try {
+        if (activeChat === "group") {
+          const messagesRef = ref(db, 'messages/');
+          await push(messagesRef, payload);
+        } else if (activeChat.type === "private") {
+          const convId = generateConversationId(currentUser.username, activeChat.target);
+          const privateRef = ref(db, 'private_messages/' + convId);
+          await push(privateRef, payload);
+        }
+        input.value = "";
+      } catch (error) {
+        console.error("Ошибка отправки сообщения:", error);
+      }
+      input.value = ""
+    }
+
+    // Bot API: обработка команд
+    function processBotCommand(message) {
+      if (message.sender === "ChatBot") return;
+      if (message.text && message.text.startsWith("/")) {
+        const command = message.text.trim();
+        if (command === "/time") {
+          setTimeout(() => { sendBotMessage("Текущее время: " + new Date().toLocaleTimeString()); }, 1000);
+        } else if (command === "/help") {
+          setTimeout(() => { sendBotMessage("Доступные команды: /time, /help"); }, 1000);
+        }
+      }
+    }
+    async function sendBotMessage(text) {
+      const msgObj = { sender: "ChatBot", text, timestamp: new Date().toISOString(), reply: false, replyText: "" };
+      let payload = {};
+      if (activeChat === "group") {
+        payload = await encryptText(JSON.stringify(msgObj), groupKey);
+      } else if (activeChat.type === "private") {
+        const convId = generateConversationId(currentUser.username, activeChat.target);
+        const users = JSON.parse(localStorage.getItem('registeredUsers') || "{}");
+        const remoteUser = users[activeChat.target];
+        const convKey = await derivePrivateChatKey(remoteUser.publicKey);
+        payload = await encryptText(JSON.stringify(msgObj), convKey);
+        payload.receiver = activeChat.target;
+      }
+      payload.encrypted = true;
+      try {
+        if (activeChat === "group") {
+          const messagesRef = ref(db, 'messages/');
+          await push(messagesRef, payload);
+        } else if (activeChat.type === "private") {
+          const convId = generateConversationId(currentUser.username, activeChat.target);
+          const privateRef = ref(db, 'private_messages/' + convId);
+          await push(privateRef, payload);
+        }
+      } catch (error) {
+        console.error("Ошибка отправки сообщения бота:", error);
+      }
+    }
+
+    // Ротация группового ключа
+    async function rotateGroupKey() {
+      groupKey = await generateGroupKey();
+      showToast("Групповой ключ обновлен.");
+    }
+
+    // Загрузка списка участников
+    function loadParticipants() {
+      try {
+        const list = document.getElementById('participants-list');
+        list.innerHTML = "";
+        let users = JSON.parse(localStorage.getItem('registeredUsers') || "{}");
+        for (let username in users) {
+          const user = users[username];
+          const li = document.createElement('li');
+          li.dataset.username = username;
+          const img = document.createElement('img');
+          img.src = user.avatar;
+          img.className = "avatar";
+          li.appendChild(img);
+          const infoDiv = document.createElement('div');
+          infoDiv.innerHTML = "<b>" + username + "</b><br><small>Статус: " + (username === currentUser.username ? "пишет" : "наблюдает") + "</small>";
+          li.appendChild(infoDiv);
+          if (username !== currentUser.username) {
+            li.addEventListener('click', () => {
+              activeChat = { type: "private", target: username };
+              updateChatHeader();
+              initChatListeners();
+            });
+          }
+          list.appendChild(li);
+        }
+      } catch (error) { console.error("Ошибка загрузки участников:", error); }
+    }
+
+    // Переключение в общий чат
+    function switchToGroupChat() {
+      activeChat = "group";
+      updateChatHeader();
+      initChatListeners();
+    }
+
+    // Выход
+    function logout() { clearSession(); location.reload(); }
+
+    // Настройки пользователя
+    function openSettings() {
+      document.getElementById('settings-modal').style.display = "flex";
+      document.getElementById('new-username').value = currentUser.username;
+      document.getElementById('new-avatar').value = currentUser.avatar;
+      document.getElementById('new-password').value = "";
+      document.getElementById('confirm-new-password').value = "";
+      document.getElementById('settings-error').textContent = "";
+    }
+    function saveUserSettings() {
+      const newUsername = document.getElementById('new-username').value.trim();
+      const newPassword = document.getElementById('new-password').value.trim();
+      const confirmNewPassword = document.getElementById('confirm-new-password').value.trim();
+      const newAvatar = document.getElementById('new-avatar').value.trim();
+      const settingsError = document.getElementById('settings-error');
+      if (!newUsername) { settingsError.textContent = "Юзернейм не может быть пустым."; return; }
+      if (newPassword || confirmNewPassword) { if (newPassword !== confirmNewPassword) { settingsError.textContent = "Пароли не совпадают."; return; } }
+      try {
+        let registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || "{}");
+        if (newUsername !== currentUser.username && registeredUsers[newUsername]) { settingsError.textContent = "Пользователь с таким именем уже существует."; return; }
+        if (newUsername !== currentUser.username) { delete registeredUsers[currentUser.username]; }
+        currentUser.username = newUsername;
+        if (newPassword) { currentUser.password = newPassword; }
+        if (newAvatar) { currentUser.avatar = newAvatar; }
+        registeredUsers[newUsername] = currentUser;
+        localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+        saveSession(currentUser);
+        loadParticipants();
+        updateChatHeader();
+        document.getElementById('settings-modal').style.display = "none";
+      } catch (error) { console.error("Ошибка сохранения настроек:", error); settingsError.textContent = "Ошибка сохранения настроек."; }
+    }
+
+    // Функция для показа уведомлений (toasts)
+    function showToast(message) {
+      const toastContainer = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = "toast";
+      toast.textContent = message;
+      toastContainer.appendChild(toast);
+      setTimeout(() => { toastContainer.removeChild(toast); }, 4000);
+    }
+
+    // Обработчики событий
+    document.getElementById('auth-button').addEventListener('click', authenticate);
+    document.getElementById('send-button').addEventListener('click', sendMessage);
+    document.getElementById('message-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+    document.getElementById('group-tab').addEventListener('click', () => {
+      activeChat = "group";
+      document.getElementById('group-tab').classList.add('active');
+      document.getElementById('private-tab').classList.remove('active');
+      updateChatHeader();
+      initChatListeners();
+    });
+    document.getElementById('private-tab').addEventListener('click', () => {
+      if (activeChat === "group") { showToast("Для личных сообщений выберите участника из списка."); return; }
+      document.getElementById('private-tab').classList.add('active');
+      document.getElementById('group-tab').classList.remove('active');
+      updateChatHeader();
+      initChatListeners();
+    });
+    document.getElementById('toggle-participants').addEventListener('click', () => {
+      const partEl = document.getElementById('participants');
+      partEl.classList.toggle('hidden');
+    });
+    document.getElementById('logout-button').addEventListener('click', logout);
+    document.getElementById('settings-button').addEventListener('click', openSettings);
+    document.getElementById('save-settings').addEventListener('click', saveUserSettings);
+    document.getElementById('close-settings').addEventListener('click', () => { document.getElementById('settings-modal').style.display = "none"; });
+    document.getElementById('rotate-key').addEventListener('click', rotateGroupKey);
+  </script>
+</body>
+</html>
