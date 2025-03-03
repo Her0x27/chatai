@@ -123,4 +123,123 @@ class SystemObjectHandler:
 }
 ```
 
-
+```python
+class WindowsInteractions:
+    actions = {
+        # Основные действия с окнами
+        'открыть': {
+            'aliases': ['запустить', 'показать', 'активировать'],
+            'target_types': ['window', 'program', 'file', 'folder', 'link']
+        },
+        'закрыть': {
+            'aliases': ['завершить', 'выключить'],
+            'target_types': ['window', 'program', 'dialog']
+        },
+        'свернуть': {
+            'aliases': ['минимизировать'],
+            'target_types': ['window', 'program']
+        },
+        'развернуть': {
+            'aliases': ['максимизировать', 'распахнуть'],
+            'target_types': ['window', 'program']
+        },
+        
+        # Действия с фокусом
+        'переключить': {
+            'aliases': ['перейти', 'сфокусировать'],
+            'target_types': ['window', 'program', 'tab']
+        },
+        'активировать': {
+            'aliases': ['выбрать', 'сделать активным'],
+            'target_types': ['window', 'element', 'control']
+        },
+        
+        # Действия с размером и положением
+        'переместить': {
+            'aliases': ['передвинуть', 'перетащить'],
+            'parameters': ['влево', 'вправо', 'вверх', 'вниз', 'в центр']
+        },
+        'изменить_размер': {
+            'aliases': ['растянуть', 'сжать'],
+            'parameters': ['больше', 'меньше', 'по размеру экрана']
+        },
+        
+        # Действия с элементами интерфейса
+        'нажать': {
+            'aliases': ['кликнуть', 'активировать'],
+            'target_types': ['button', 'link', 'menu_item']
+        },
+        'выделить': {
+            'aliases': ['пометить', 'выбрать'],
+            'target_types': ['text', 'file', 'element']
+        },
+        
+        # Действия с текстом
+        'ввести': {
+            'aliases': ['напечатать', 'вставить текст'],
+            'target_types': ['textbox', 'editor', 'field']
+        },
+        'копировать': {
+            'aliases': ['скопировать'],
+            'target_types': ['text', 'file', 'element']
+        },
+        'вставить': {
+            'aliases': ['вставить из буфера'],
+            'target_types': ['textbox', 'editor', 'field']
+        },
+        
+        # Действия с файлами
+        'создать': {
+            'aliases': ['новый', 'добавить'],
+            'target_types': ['file', 'folder', 'shortcut']
+        },
+        'удалить': {
+            'aliases': ['убрать', 'стереть'],
+            'target_types': ['file', 'folder', 'shortcut', 'element']
+        },
+        'переименовать': {
+            'aliases': ['изменить имя'],
+            'target_types': ['file', 'folder', 'shortcut']
+        },
+        
+        # Действия с меню
+        'раскрыть': {
+            'aliases': ['открыть меню', 'показать список'],
+            'target_types': ['menu', 'dropdown', 'list']
+        },
+        'выбрать_пункт': {
+            'aliases': ['выбрать опцию'],
+            'target_types': ['menu_item', 'option', 'list_item']
+        },
+        
+        # Системные действия
+        'обновить': {
+            'aliases': ['перезагрузить', 'освежить'],
+            'target_types': ['window', 'view', 'page']
+        },
+        'найти': {
+            'aliases': ['поиск', 'искать'],
+            'target_types': ['file', 'text', 'program']
+        },
+        
+        # Действия с вкладками
+        'новая_вкладка': {
+            'aliases': ['создать вкладку'],
+            'target_types': ['browser', 'editor']
+        },
+        'закрыть_вкладку': {
+            'aliases': ['удалить вкладку'],
+            'target_types': ['browser', 'editor']
+        },
+        
+        # Мультимедийные действия
+        'воспроизвести': {
+            'aliases': ['играть', 'запустить медиа'],
+            'target_types': ['media', 'video', 'audio']
+        },
+        'остановить': {
+            'aliases': ['пауза', 'стоп'],
+            'target_types': ['media', 'video', 'audio']
+        }
+    }
+```
