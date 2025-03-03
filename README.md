@@ -1,8 +1,7 @@
 #chatai
-
-```python
-class SystemObjectHandler:
-    special_objects = {
+### special_objspecial_objectsects
+```json
+{
         # Системные папки и локации
         'мой компьютер': 'This PC',
         'корзина': 'Recycle Bin',
@@ -122,10 +121,9 @@ class SystemObjectHandler:
         'сетевая_диагностика': 'msdt.exe -id NetworkDiagnosticsNetworkAdapter'
 }
 ```
-
-```python
-class WindowsInteractions:
-    actions = {
+### WindowsInteractions[actions]
+```json
+{
         # Основные действия с окнами
         'открыть': {
             'aliases': ['запустить', 'показать', 'активировать'],
