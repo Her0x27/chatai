@@ -3,11 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Многоязычный чат / Multilingual Chat</title>
+    <title>Многоязычный чат с WebRTC File Transfer</title>
     <!-- Google Fonts -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;700&display=swap" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;700&display=swap"
+    />
     <!-- FontAwesome для иконок -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css"
+    />
     <!-- Основной стиль -->
     <link rel="stylesheet" href="style.css" />
   </head>
@@ -70,42 +76,58 @@
         <div id="messages"></div>
         <form id="message-form">
           <textarea id="message-input" placeholder="Введите сообщение" required></textarea>
-          <!-- Элемент для загрузки файла -->
+          <!-- Элемент для загрузки файла (по умолчанию через firebase) -->
           <input type="file" id="file-input" accept="*/*" />
-          <button type="submit">
+          <button type="submit" title="Отправить">
             <i class="fas fa-paper-plane"></i>
           </button>
         </form>
       </div>
-      <!-- Отображение Peer ID и внутреннего IP -->
-      <div id="peer-info">
-        <div id="peer-id-display">
-          <span data-translate="your_peer_id">Ваш Peer ID:</span>
-          <span id="peer-id"></span>
+      <!-- Раздел дополнительных возможностей -->
+      <div id="extras">
+        <!-- Peer ID и внутренний IP -->
+        <div id="peer-info">
+          <div id="peer-id-display">
+            <span data-translate="your_peer_id">Ваш Peer ID:</span>
+            <span id="peer-id"></span>
+          </div>
+          <div id="internal-ip">
+            <i class="fas fa-laptop-code"></i>
+            <span data-translate="internal_ip">Ваш внутренний IP:</span>
+            <span id="ip-address"></span>
+          </div>
         </div>
-        <div id="internal-ip">
-          <i class="fas fa-laptop-code"></i>
-          <span data-translate="internal_ip">Ваш внутренний IP:</span>
-          <span id="ip-address"></span>
+        <!-- Статус подключения -->
+        <div id="connection-status">
+          <i class="fas fa-plug"></i>
+          <span data-translate="connection_status">Статус подключения:</span>
+          <span id="status-display"></span>
+          <button id="ping-btn" title="Ping">
+            <i class="fas fa-broadcast-tower"></i>
+          </button>
+          <span id="ping-result"></span>
         </div>
-      </div>
-      <!-- Отображение статуса подключения -->
-      <div id="connection-status">
-        <i class="fas fa-plug"></i>
-        <span data-translate="connection_status">Статус подключения:</span>
-        <span id="status-display"></span>
-      </div>
-      <!-- Блок настроек подключения (STUN/TURN) -->
-      <div id="connection-settings">
-        <h3 data-translate="connection_settings">Настройки подключения</h3>
-        <label for="stun-servers">
-          <i class="fas fa-cog"></i>
-          <span data-translate="stun_servers">STUN сервера (через запятую):</span>
-        </label>
-        <input type="text" id="stun-servers" placeholder="stun:stun.l.google.com:19302" />
-        <button id="save-connection-settings" title="Save Settings">
-          <i class="fas fa-save"></i>
-        </button>
+        <!-- Настройки подключения -->
+        <div id="connection-settings">
+          <h3 data-translate="connection_settings">Настройки подключения</h3>
+          <label for="stun-servers">
+            <i class="fas fa-cog"></i>
+            <span data-translate="stun_servers">STUN сервера (через запятую):</span>
+          </label>
+          <input type="text" id="stun-servers" placeholder="stun:stun.l.google.com:19302" />
+          <button id="save-connection-settings" title="Сохранить настройки">
+            <i class="fas fa-save"></i>
+          </button>
+        </div>
+        <!-- Раздел передачи файлов через WebRTC -->
+        <div id="webrtc-file-transfer">
+          <h3 data-translate="file_transfer">Передача файлов (WebRTC)</h3>
+          <input type="file" id="webrtc-file-input" accept="*/*" />
+          <button id="webrtc-send-file" title="Отправить файл">
+            <i class="fas fa-file-upload"></i>
+          </button>
+          <div id="file-transfer-status"></div>
+        </div>
       </div>
     </div>
 
@@ -114,7 +136,7 @@
     <script type="module" src="https://www.gstatic.com/firebasejs/11.4.0/firebase-database.js"></script>
     <!-- PeerJS библиотека -->
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
-    <!-- bcryptjs для хеширования (если требуется) -->
+    <!-- bcryptjs для хеширования -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
     <!-- DOMPurify для санитизации ввода -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.4.8/purify.min.js"></script>
